@@ -8,6 +8,10 @@ import time
 import zipfile
 from scraper import scrape_google_maps
 
+# Auto-install Playwright Chromium on cloud platforms (Linux)
+if os.name != 'nt':
+    os.system("playwright install chromium")
+
 # Set page config
 st.set_page_config(
     page_title="Google Business Listing Scraper",
