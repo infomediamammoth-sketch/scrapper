@@ -46,8 +46,19 @@ def scrape_google_maps(query, location, max_results, headful=False):
     search_url = f"https://www.google.com/maps/search/{encoded_query}"
     
     with sync_playwright() as p:
-        # Launch browser
-        browser = p.chromium.launch(headless=not headful)
+        # Launch browser with auto-installation fallback for free cloud environments
+        try:
+            browser = p.chromium.launch(headless=not headful)
+        except Exception as launch_err:
+            err_str = str(launch_err)
+            if "Executable doesn't exist" in err_str or "playwright install" in err_str:
+                yield {"type": "status", "message": "First-time setup: Installing browser binaries in cloud (takes ~1 min)..."}
+                import subprocess
+                subprocess.run(["playwright", "install", "chromium"], check=True)
+                browser = p.chromium.launch(headless=not headful)
+            else:
+                raise launch_err
+
         
         # Create a new browser context with English language settings to ensure consistent text selectors
         context = browser.new_context(
