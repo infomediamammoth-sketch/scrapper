@@ -47,15 +47,21 @@ def scrape_google_maps(query, location, max_results, headful=False):
     
     with sync_playwright() as p:
         # Launch browser with auto-installation fallback for free cloud environments
+        browser_args = [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu"
+        ]
         try:
-            browser = p.chromium.launch(headless=not headful)
+            browser = p.chromium.launch(headless=not headful, args=browser_args)
         except Exception as launch_err:
             err_str = str(launch_err)
             if "Executable doesn't exist" in err_str or "playwright install" in err_str:
                 yield {"type": "status", "message": "First-time setup: Installing browser binaries in cloud (takes ~1 min)..."}
                 import subprocess
                 subprocess.run(["playwright", "install", "chromium"], check=True)
-                browser = p.chromium.launch(headless=not headful)
+                browser = p.chromium.launch(headless=not headful, args=browser_args)
             else:
                 raise launch_err
 
