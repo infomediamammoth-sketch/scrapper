@@ -8,9 +8,14 @@ import time
 import zipfile
 from scraper import scrape_google_maps
 
-# Auto-install Playwright Chromium on cloud platforms (Linux)
-if os.name != 'nt':
-    os.system("playwright install chromium")
+# Auto-install Playwright Chromium once on cloud platforms (Linux)
+@st.cache_resource
+def init_cloud_browser():
+    if os.name != 'nt':
+        os.system("playwright install chromium")
+    return True
+
+init_cloud_browser()
 
 # Set page config
 st.set_page_config(
