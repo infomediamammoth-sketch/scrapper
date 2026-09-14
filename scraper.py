@@ -36,7 +36,7 @@ def extract_city(address, search_location):
             
     return parts[0]
 
-def scrape_google_maps(query, location, max_results, headful=False):
+def scrape_google_maps(query, location, max_results, headful=False, require_phone=False):
     """
     Scrapes business listings from Google Maps.
     Yields dictionary results in real-time.
@@ -95,11 +95,12 @@ def scrape_google_maps(query, location, max_results, headful=False):
         if feed_locator.count() > 0:
             yield {"type": "status", "message": "Scrolling search results to collect listings..."}
             
+            target_urls_count = int(max_results * 1.6) if require_phone else max_results
             scroll_attempts = 0
-            max_scroll_attempts = max(40, (max_results // 5))
+            max_scroll_attempts = max(40, (target_urls_count // 5))
             last_url_count = 0
             
-            while len(urls) < max_results and scroll_attempts < max_scroll_attempts:
+            while len(urls) < target_urls_count and scroll_attempts < max_scroll_attempts:
                 # Find all place links
                 links = page.locator('a[href*="/maps/place/"]').all()
                 for link in links:
@@ -110,12 +111,12 @@ def scrape_google_maps(query, location, max_results, headful=False):
                             clean_url = href.split('?')[0]
                             if clean_url not in urls:
                                 urls.add(clean_url)
-                                if len(urls) >= max_results:
+                                if len(urls) >= target_urls_count:
                                     break
                     except Exception:
                         continue
                 
-                if len(urls) >= max_results:
+                if len(urls) >= target_urls_count:
                     break
                     
                 # Scroll down feed
@@ -153,8 +154,11 @@ def scrape_google_maps(query, location, max_results, headful=False):
 
         # Visit each business listing URL and scrape details
         scraped_count = 0
-        for i, url in enumerate(list(urls)[:max_results]):
-            yield {"type": "status", "message": f"Processing listing {i+1} of {len(urls)}..."}
+        url_list = list(urls)
+        for i, url in enumerate(url_list):
+            if scraped_count >= max_results:
+                break
+            yield {"type": "status", "message": f"Processing listing {i+1} of {len(url_list)}..."}
             
             try:
                 page.goto(url, timeout=30000)
@@ -203,6 +207,14 @@ def scrape_google_maps(query, location, max_results, headful=False):
                     phone = phone_el.inner_text().strip()
                     # Clean up phone (remove "Phone: " or other prefixes if any)
                     phone = re.sub(r'[^\d+\s\-()]+', '', phone).strip()
+                
+                # Check if mobile / phone number is required
+                if require_phone and not phone:
+                    yield {
+                        "type": "skip",
+                        "message": f"Skipped '{name}': No mobile number listed."
+                    }
+                    continue
                 
                 # City
                 city = extract_city(address, location)

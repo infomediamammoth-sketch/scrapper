@@ -220,6 +220,14 @@ with st.sidebar:
         st.info(f"⚡ **{total_planned_tasks} tasks queued** running across **{parallel_workers} parallel session(s)**. Estimated ~{parallel_workers}x faster extraction!")
     
     st.markdown("---")
+    st.markdown("## Lead Filtering")
+    require_phone = st.checkbox(
+        "Skip companies without mobile number", 
+        value=False, 
+        help="When enabled, any business that does not have a phone or mobile number listed on Google Maps will be automatically skipped."
+    )
+    
+    st.markdown("---")
     st.markdown("## Debugging Options")
     headful = st.checkbox("Show Browser (Headful)", value=False, help="Visible browser mode. Keep unchecked when using parallel workers for best performance.")
     
@@ -265,11 +273,11 @@ def update_status(status, message):
 update_status(st.session_state.current_status, st.session_state.current_message)
 
 # Worker runner for thread pool
-def execute_worker_task(task_id, q_text, loc_text, limit, is_headful, out_q):
+def execute_worker_task(task_id, q_text, loc_text, limit, is_headful, req_phone, out_q):
     out_q.put({"type": "task_start", "task_id": task_id, "query": q_text, "location": loc_text})
     task_leads = []
     try:
-        for event in scrape_google_maps(q_text, loc_text, limit, is_headful):
+        for event in scrape_google_maps(q_text, loc_text, limit, is_headful, require_phone=req_phone):
             event["task_id"] = task_id
             event["query"] = q_text
             event["location"] = loc_text
@@ -314,7 +322,7 @@ if start_btn:
         
         with ThreadPoolExecutor(max_workers=active_workers) as executor:
             futures = [
-                executor.submit(execute_worker_task, idx, t[0], t[1], lead_limit, headful, event_queue)
+                executor.submit(execute_worker_task, idx, t[0], t[1], lead_limit, headful, require_phone, event_queue)
                 for idx, t in enumerate(task_matrix)
             ]
             
